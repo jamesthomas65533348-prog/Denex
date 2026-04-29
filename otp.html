@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Verify Denex</title>
+    
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root { 
+            --denex-blue: #3B99FF; 
+            --denex-light: #f0f7ff;
+            --denex-white: #ffffff;
+            --denex-red: #ff4757;
+            --text-gray: #666;
+            --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* --- UI HYGIENE --- */
+        * { 
+            -webkit-tap-highlight-color: transparent; 
+            box-sizing: border-box; 
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        body { 
+            background: var(--denex-white); 
+            margin: 0; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+
+        .otp-container { 
+            width: 100%; 
+            max-width: 400px; 
+            padding: 25px; 
+            text-align: center;
+            animation: fadeIn 0.6s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- LOGO --- */
+        .logo-bubbles { position: relative; width: 60px; height: 50px; margin: 0 auto 20px; }
+        .bubble-main { 
+            position: absolute; width: 40px; height: 40px; background: var(--denex-blue); 
+            border-radius: 50% 50% 0 50%; display: flex; align-items: center; justify-content: center; z-index: 2;
+        }
+        .bubble-sub { 
+            position: absolute; width: 32px; height: 32px; background: #96C9FF; 
+            border-radius: 50% 50% 50% 0; bottom: 0; right: 0; opacity: 0.7; z-index: 1;
+        }
+        .dot { width: 4px; height: 4px; background: white; border-radius: 50%; margin: 0 1px; }
+
+        h2 { font-size: 26px; color: #333; margin-bottom: 10px; font-weight: 700; letter-spacing: -0.5px; }
+        p { color: var(--text-gray); font-size: 15px; margin-bottom: 30px; line-height: 1.5; font-weight: 500; }
+        #target-email { color: var(--denex-blue); font-weight: 700; word-break: break-all; }
+
+        /* --- OTP BOXES UPGRADE --- */
+        .otp-input-group { display: flex; gap: 10px; justify-content: center; margin-bottom: 35px; }
+        .otp-box { 
+            width: 46px; height: 58px; border: 2px solid #eee; background: #fafafa;
+            border-radius: 16px; text-align: center; font-size: 22px; font-weight: 700;
+            outline: none; transition: 0.4s var(--spring); color: #333;
+            user-select: text; -webkit-user-select: text;
+        }
+        .otp-box:focus { 
+            border-color: var(--denex-blue); 
+            background: #fff; 
+            transform: scale(1.1); 
+            box-shadow: 0 8px 20px rgba(59,153,255,0.15); 
+        }
+
+        .verify-btn {
+            width: 100%; padding: 18px; background: var(--denex-blue);
+            color: white; border: none; border-radius: 18px; font-weight: 700; font-size: 16px;
+            cursor: pointer; transition: 0.4s var(--spring);
+            box-shadow: 0 5px 15px rgba(59,153,255,0.2);
+        }
+        .verify-btn:active { transform: scale(0.94); }
+
+        .resend-section { margin-top: 30px; font-size: 14px; color: var(--text-gray); font-weight: 600; }
+        #timer { color: var(--denex-blue); font-weight: 700; }
+        #resend-btn { color: var(--denex-blue); font-weight: 700; cursor: pointer; display: none; padding: 5px; }
+
+        /* --- DENEX GLASS POP-UP --- */
+        #denexToast {
+            position: fixed; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(59, 153, 255, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: white; 
+            padding: 16px 28px; 
+            border-radius: 24px;
+            z-index: 5000; 
+            opacity: 0;
+            visibility: hidden;
+            transition: 0.4s var(--spring); 
+            font-weight: 600; 
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            min-width: 240px;
+        }
+        #denexToast.show { 
+            opacity: 1; 
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1); 
+        }
+    </style>
+</head>
+<body>
+
+    <div id="denexToast">Verification code sent!</div>
+
+    <div class="otp-container">
+        <div class="logo-bubbles">
+            <div class="bubble-main"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+            <div class="bubble-sub"></div>
+        </div>
+        
+        <h2>Verify Account</h2>
+        <p>Enter the 6-digit code sent to <br><span id="target-email">loading...</span></p>
+
+        <div class="otp-input-group">
+            <input type="number" class="otp-box" pattern="\d*" inputmode="numeric">
+            <input type="number" class="otp-box" pattern="\d*" inputmode="numeric">
+            <input type="number" class="otp-box" pattern="\d*" inputmode="numeric">
+            <input type="number" class="otp-box" pattern="\d*" inputmode="numeric">
+            <input type="number" class="otp-box" pattern="\d*" inputmode="numeric">
+            <input type="number" class="otp-box" pattern="\d*" inputmode="numeric">
+        </div>
+
+        <button class="verify-btn" onclick="checkOTP()">Verify Identity</button>
+
+        <div class="resend-section">
+            <span id="timer-wrap">Resend code in <span id="timer">03:00</span></span>
+            <span id="resend-btn" onclick="resendCode()">Resend Now</span>
+        </div>
+    </div>
+
+    <script>
+        /* LOGIC REMAINS UNTOUCHED */
+        const toast = document.getElementById('denexToast');
+        let timeLeft = 180; 
+        
+        const userEmail = localStorage.getItem('reg_email') || 'your email';
+        document.getElementById('target-email').innerText = userEmail;
+
+        function showToast(msg, error = false) {
+            toast.innerText = msg;
+            toast.style.background = error ? "rgba(255, 71, 87, 0.92)" : "rgba(59, 153, 255, 0.92)";
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        const boxes = document.querySelectorAll('.otp-box');
+        boxes.forEach((box, idx) => {
+            box.addEventListener('input', (e) => {
+                if (e.target.value.length > 1) e.target.value = e.target.value.slice(0, 1);
+                if (e.target.value.length === 1 && idx < boxes.length - 1) {
+                    boxes[idx + 1].focus();
+                }
+            });
+
+            box.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+                    boxes[idx - 1].focus();
+                }
+            });
+        });
+
+        function startTimer() {
+            const timerEl = document.getElementById('timer');
+            const wrap = document.getElementById('timer-wrap');
+            const btn = document.getElementById('resend-btn');
+
+            const countdown = setInterval(() => {
+                let m = Math.floor(timeLeft / 60);
+                let s = timeLeft % 60;
+                timerEl.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(countdown);
+                    wrap.style.display = 'none';
+                    btn.style.display = 'inline';
+                }
+                timeLeft--;
+            }, 1000);
+        }
+
+        async function resendCode() {
+            if (typeof DENEX_UTILS === 'undefined') return;
+            const btn = document.getElementById('resend-btn');
+            const wrap = document.getElementById('timer-wrap');
+            const newOtp = DENEX_UTILS.generateOTP();
+            localStorage.setItem('denex_otp', newOtp);
+            showToast("Sending new code...", false);
+            try {
+                await DENEX_UTILS.sendEmailOTP(userEmail, newOtp);
+                showToast("Code resent successfully!");
+                timeLeft = 180;
+                btn.style.display = 'none';
+                wrap.style.display = 'inline';
+                startTimer();
+            } catch (e) {
+                showToast("Connection Error.", true);
+            }
+        }
+
+        function checkOTP() {
+            let entered = "";
+            boxes.forEach(b => entered += b.value);
+            const stored = localStorage.getItem('denex_otp');
+            if (entered === String(stored)) {
+                showToast("Verified!", false);
+                setTimeout(() => {
+                    location.href = 'register.html?status=verified';
+                }, 1500);
+            } else {
+                showToast("Incorrect code.", true);
+                boxes.forEach(b => b.value = "");
+                boxes[0].focus();
+            }
+        }
+
+        window.onload = startTimer;
+    </script>
+</body>
+</html>
