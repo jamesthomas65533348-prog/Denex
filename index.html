@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Denex - Dashboard</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root { 
+            --denex-blue: #3B99FF; 
+            --denex-dark: #1c1c1e;
+            --denex-gray: #8e8e93;
+            --denex-bg: #ffffff;
+            --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background: var(--denex-bg); margin: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
+        /* --- HEADER --- */
+        header {
+            background: var(--denex-blue);
+            color: white;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        .user-badge { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+        .user-badge img { width: 35px; height: 35px; border-radius: 50%; background: #eee; border: 2px solid white; object-fit: cover; }
+        .user-badge span { font-weight: 600; font-size: 14px; }
+        
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        .burger-menu { cursor: pointer; font-size: 22px; }
+
+        /* --- GUEST UI --- */
+        #guestUI { display: none; padding: 40px 20px; text-align: center; flex: 1; }
+        .guest-mode .burger-menu { display: none !important; }
+        .guest-mode #guestUI { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .btn-login { background: var(--denex-blue); color: white; border: none; padding: 12px 30px; border-radius: 25px; font-weight: 600; margin-top: 20px; }
+
+        /* --- SIDEBAR MENU --- */
+        .dropdown {
+            position: fixed; top: 0; right: -280px; width: 280px; height: 100%;
+            background: white; box-shadow: -5px 0 25px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; z-index: 1000;
+            transition: 0.4s var(--spring);
+        }
+        .dropdown.active { right: 0; }
+        .menu-header { padding: 30px 20px; background: #f8f9fa; border-bottom: 1px solid #eee; }
+        .dropdown-item {
+            padding: 18px 25px; color: var(--denex-dark); font-weight: 600; font-size: 15px;
+            display: flex; align-items: center; gap: 15px; cursor: pointer;
+        }
+        .dropdown-item i { color: var(--denex-blue); width: 20px; }
+        .logout { color: #ff4757 !important; border-top: 1px solid #eee; margin-top: auto; padding-bottom: 30px; }
+
+        /* --- CHAT LIST --- */
+        #chatList { flex: 1; overflow-y: auto; display: none; }
+        .chat-item { 
+            display: flex; align-items: center; padding: 15px 20px; 
+            border-bottom: 1px solid #f0f0f0; gap: 15px; cursor: pointer;
+            user-select: none; /* Prevents text highlight during long press */
+        }
+        .chat-item:active { background: #f9f9f9; }
+        .pfp-wrap { position: relative; width: 50px; height: 50px; }
+        .pfp-wrap img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; background: #eee; }
+        
+        .online-status { 
+            position: absolute; bottom: 2px; right: 2px; width: 12px; height: 12px; 
+            background: #8e8e93; border: 2px solid white; border-radius: 50%; 
+        }
+        .online-status.active { background: #4cd137; }
+
+        .unread-dot { 
+            position: absolute; top: 2px; right: 2px; width: 12px; height: 12px; 
+            background: #ff4757; border: 2px solid white; border-radius: 50%; display: none; 
+        }
+        .chat-info { flex: 1; }
+        .chat-info h4 { margin: 0; font-size: 16px; color: var(--denex-dark); }
+        .chat-info p { margin: 4px 0 0; font-size: 13px; color: var(--denex-gray); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* --- FLOATING D --- */
+        #empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; }
+        .d-container { position: relative; width: 120px; height: 120px; margin-bottom: 20px; animation: float 3s ease-in-out infinite; }
+        .d-symbol { font-size: 100px; font-weight: 900; color: var(--denex-blue); }
+        .hand-wave { position: absolute; top: 10px; right: -10px; font-size: 40px; animation: wave 1.5s ease-in-out infinite alternate; transform-origin: bottom right; }
+
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+        @keyframes wave { 0% { transform: rotate(0deg); } 100% { transform: rotate(25deg); } }
+
+        /* --- SEARCH --- */
+        .search-container { padding: 15px; background: #fff; }
+        .search-box { background: #f1f3f5; border-radius: 12px; display: flex; align-items: center; padding: 12px 15px; }
+        .search-box input { border: none; background: transparent; outline: none; width: 100%; margin-left: 10px; font-size: 16px; }
+
+        #denexAlert {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(0,0,0,0.85); color: white; padding: 15px 25px; border-radius: 50px;
+            z-index: 5000; opacity: 0; visibility: hidden; transition: 0.3s var(--spring);
+        }
+        #denexAlert.show { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+    </style>
+</head>
+<body id="appBody">
+
+    <div id="denexAlert">Message</div>
+
+    <header>
+        <div class="user-badge" id="topProfile" onclick="location.href='profile.html'">
+            <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" id="headAvatar">
+            <span id="headUname">Guest</span>
+        </div>
+        <div class="header-right">
+            <i class="fa-solid fa-bars burger-menu" onclick="toggleMenu(event)"></i>
+        </div>
+    </header>
+
+    <div class="dropdown" id="userDropdown">
+        <div class="menu-header"><h3 style="margin:0; color:var(--denex-blue)">Menu</h3></div>
+        <div class="dropdown-item" onclick="location.href='index.html'"><i class="fa-solid fa-comment"></i> Chats</div>
+        <div class="dropdown-item" onclick="location.href='profile.html'"><i class="fa-solid fa-circle-user"></i> Profile</div>
+        <div class="dropdown-item" onclick="location.href='setting.html'"><i class="fa-solid fa-gear"></i> Settings</div>
+        <div class="dropdown-item logout" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</div>
+    </div>
+
+    <div class="search-container">
+        <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass" style="color: #8e8e93;"></i>
+            <input type="text" id="userSearch" placeholder="Search username to chat...">
+        </div>
+    </div>
+
+    <div id="guestUI">
+        <h2 style="color: var(--denex-dark);">Guest Mode</h2>
+        <p style="color: var(--denex-gray);">Login to chat with friends and customize your profile.</p>
+        <button class="btn-login" onclick="location.href='login.html'">Login Now</button>
+    </div>
+
+    <div id="empty-state">
+        <div class="d-container">
+            <div class="d-symbol">D</div>
+            <div class="hand-wave">👋</div>
+        </div>
+        <p class="empty-text">Welcome to Denex!<br>
+        <small style="opacity: 0.6; font-size: 14px;">Search a friend to start chatting</small></p>
+    </div>
+
+    <div id="chatList"></div>
+
+    <script>
+        const me = JSON.parse(localStorage.getItem('denex_user'));
+        const alertBox = document.getElementById('denexAlert');
+        const dropdown = document.getElementById('userDropdown');
+        const chatListDiv = document.getElementById('chatList');
+        const emptyState = document.getElementById('empty-state');
+
+        let _supa;
+        if (typeof DENEX_CONFIG !== 'undefined') {
+            _supa = supabase.createClient(DENEX_CONFIG.SB_URL, DENEX_CONFIG.SB_KEY);
+        }
+
+        async function initPage() {
+            if (!me) {
+                document.getElementById('appBody').classList.add('guest-mode');
+                document.getElementById('topProfile').style.display = 'none';
+                emptyState.style.display = 'none';
+                return;
+            }
+            
+            document.getElementById('headUname').innerText = "@" + me.username;
+            if(me.avatar_url) document.getElementById('headAvatar').src = me.avatar_url;
+            
+            loadRecentChats();
+            updateMyStatus();
+            setInterval(updateMyStatus, 30000); 
+
+            // --- REAL-TIME LISTENER ADDED HERE ---
+            _supa.channel('any')
+                .on('postgres_changes', { event: '*', table: 'denex_messages' }, (payload) => {
+                    // Refresh chat list if the current user is part of the message
+                    if (payload.new.receiver_id === me.id || payload.new.sender_id === me.id) {
+                        loadRecentChats();
+                    }
+                })
+                .subscribe();
+        }
+
+        async function updateMyStatus() {
+            if (!me) return;
+            await _supa.from('denex_profiles').update({ last_login: new Date().toISOString() }).eq('id', me.id);
+        }
+
+        async function loadRecentChats() {
+            // 1. Fetch blocks to filter the list
+            const { data: blocks } = await _supa.from('denex_blocks')
+                .select('blocker_id, blocked_id')
+                .or(`blocker_id.eq.${me.id},blocked_id.eq.${me.id}`);
+            
+            const blockedIds = blocks ? blocks.map(b => b.blocker_id === me.id ? b.blocked_id : b.blocker_id) : [];
+
+            const { data: messages } = await _supa.from('denex_messages')
+                .select('sender_id, receiver_id, content, created_at, is_read')
+                .or(`sender_id.eq.${me.id},receiver_id.eq.${me.id}`)
+                .order('created_at', { ascending: false });
+
+            if (!messages || messages.length === 0) {
+                emptyState.style.display = 'flex';
+                chatListDiv.style.display = 'none';
+                return;
+            }
+
+            const usersMap = new Map();
+            messages.forEach(m => {
+                const otherId = m.sender_id === me.id ? m.receiver_id : m.sender_id;
+                
+                // Skip if this user is blocked or has blocked us
+                if (blockedIds.includes(otherId)) return;
+
+                if (!usersMap.has(otherId)) {
+                    usersMap.set(otherId, {
+                        lastMsg: m.content || "📷 Image",
+                        unread: (m.receiver_id === me.id && !m.is_read)
+                    });
+                }
+            });
+
+            if (usersMap.size === 0) {
+                emptyState.style.display = 'flex';
+                chatListDiv.style.display = 'none';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            chatListDiv.style.display = 'block';
+            chatListDiv.innerHTML = '';
+
+            for (const [uid, info] of usersMap) {
+                const { data: u } = await _supa.from('denex_profiles').select('*').eq('id', uid).single();
+                if(!u) continue;
+
+                const isOnline = (new Date() - new Date(u.last_login)) / 1000 / 60 < 2;
+
+                const item = document.createElement('div');
+                item.className = 'chat-item';
+                
+                // Handle Long Press for Blocking
+                let pressTimer;
+                item.onpointerdown = () => {
+                    pressTimer = window.setTimeout(() => handleLongPress(u.id, u.first_name), 800);
+                };
+                item.onpointerup = () => clearTimeout(pressTimer);
+                item.onpointerleave = () => clearTimeout(pressTimer);
+
+                item.onclick = () => {
+                    _supa.from('denex_messages').update({ is_read: true }).eq('sender_id', uid).eq('receiver_id', me.id);
+                    location.href = `chat.html?chat_id=${u.id}&username=${u.username}`;
+                };
+
+                item.innerHTML = `
+                    <div class="pfp-wrap">
+                        <img src="${u.avatar_url || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}">
+                        <div class="online-status ${isOnline ? 'active' : ''}"></div>
+                        <div class="unread-dot" style="display: ${info.unread ? 'block' : 'none'}"></div>
+                    </div>
+                    <div class="chat-info">
+                        <h4>${u.first_name}</h4>
+                        <p>${info.lastMsg}</p>
+                    </div>
+                `;
+                chatListDiv.appendChild(item);
+            }
+        }
+
+        async function handleLongPress(targetId, name) {
+            if (confirm(`Block ${name} and delete this chat?`)) {
+                popAlert("Blocking...");
+                const { error } = await _supa.from('denex_blocks').insert({
+                    blocker_id: me.id,
+                    blocked_id: targetId
+                });
+
+                if (!error) {
+                    popAlert(`${name} removed`);
+                    loadRecentChats(); // Instant refresh to hide the user
+                } else {
+                    popAlert("Action failed");
+                }
+            }
+        }
+
+        function popAlert(msg) {
+            alertBox.innerText = msg;
+            alertBox.classList.add('show');
+            setTimeout(() => alertBox.classList.remove('show'), 2500);
+        }
+
+        function toggleMenu(e) { e.stopPropagation(); dropdown.classList.toggle('active'); }
+        window.onclick = () => dropdown.classList.remove('active');
+
+        function handleLogout() {
+            localStorage.removeItem('denex_user');
+            location.href = 'login.html';
+        }
+
+        const searchInput = document.getElementById('userSearch');
+        searchInput.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                const query = searchInput.value.trim().toLowerCase();
+                if (!me) return popAlert("Please login first");
+
+                if (query === me.username.toLowerCase()) {
+                    popAlert("Viewing your profile...");
+                    setTimeout(() => location.href = 'profile.html', 1000);
+                    return;
+                }
+
+                popAlert("Searching...");
+                const { data } = await _supa.from('denex_profiles').select('id, username, first_name').eq('username', query).maybeSingle();
+                if (data) {
+                    popAlert(`Found ${data.first_name}!`);
+                    setTimeout(() => location.href = `chat.html?chat_id=${data.id}&username=${data.username}`, 1000);
+                } else {
+                    popAlert("User not found");
+                }
+            }
+        });
+
+        initPage();
+    </script>
+</body>
+</html>
