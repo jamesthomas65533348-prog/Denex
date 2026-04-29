@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Denex - My Profile</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --denex-blue: #3B99FF; --denex-bg: #f0f2f5; --spring: cubic-bezier(0.34, 1.56, 0.64, 1); }
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: var(--denex-bg); margin: 0; padding-bottom: 50px; }
+
+        header { background: var(--denex-blue); color: white; padding: 15px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .header-left { display: flex; align-items: center; gap: 15px; font-size: 18px; font-weight: 600; }
+        
+        .profile-card { background: white; margin: 20px 15px; padding: 25px; border-radius: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        
+        /* --- AVATAR STYLES --- */
+        .avatar-container { position: relative; width: 110px; height: 110px; margin: 0 auto 15px; }
+        .avatar-main { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 4px solid #eee; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 40px; color: var(--denex-blue); font-weight: bold; overflow: hidden; }
+        
+        .avatar-actions { position: absolute; bottom: 0; right: 0; display: flex; gap: 5px; }
+        .action-btn { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; cursor: pointer; color: white; font-size: 14px; }
+        .edit-btn { background: var(--denex-blue); }
+        .delete-btn { background: #ff4757; display: none; } /* Hidden by default if no photo */
+
+        .info-group { text-align: left; margin-bottom: 15px; }
+        label { font-size: 12px; color: gray; font-weight: 600; margin-left: 5px; }
+        .input-field { width: 100%; padding: 12px 15px; border-radius: 12px; border: 1px solid #ddd; margin-top: 5px; font-size: 15px; outline: none; background: #fdfdfd; }
+        .input-field:disabled { background: #f0f0f0; color: #888; }
+
+        .save-btn { background: var(--denex-blue); color: white; border: none; width: 100%; padding: 14px; border-radius: 12px; font-weight: 700; margin-top: 10px; cursor: pointer; }
+
+        .section-title { padding: 0 20px; font-size: 14px; color: gray; font-weight: 700; text-transform: uppercase; margin-top: 25px; }
+        .block-list { background: white; margin: 10px 15px; border-radius: 15px; overflow: hidden; }
+        .blocked-user { padding: 12px 15px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #eee; }
+        .blocked-user:last-child { border: none; }
+        .blocked-info { flex: 1; }
+        .blocked-name { font-weight: 600; font-size: 15px; }
+
+        #loading { position: fixed; inset: 0; background: rgba(255,255,255,0.8); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    </style>
+</head>
+<body>
+
+    <div id="loading"><i class="fa-solid fa-circle-notch fa-spin fa-2x" style="color:var(--denex-blue)"></i></div>
+
+    <header>
+        <div class="header-left">
+            <i class="fa-solid fa-arrow-left" onclick="location.href='index.html'"></i>
+            <span>My Profile</span>
+        </div>
+        <i class="fa-solid fa-gear" onclick="location.href='setting.html'" style="font-size: 20px; cursor: pointer;"></i>
+    </header>
+
+    <div class="profile-card">
+        <div class="avatar-container">
+            <div class="avatar-main" id="profileAvatar">?</div>
+            <div class="avatar-actions">
+                <div id="btnDeletePhoto" class="action-btn delete-btn" onclick="deleteAvatar()">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <label for="avatarInput" class="action-btn edit-btn">
+                    <i class="fa-solid fa-camera"></i>
+                </label>
+            </div>
+            <input type="file" id="avatarInput" hidden accept="image/*" onchange="uploadAvatar(this)">
+        </div>
+        
+        <div class="info-group">
+            <label>First Name</label>
+            <input type="text" id="firstName" class="input-field">
+        </div>
+        <div class="info-group">
+            <label>Last Name</label>
+            <input type="text" id="lastName" class="input-field">
+        </div>
+        <div class="info-group">
+            <label>Username</label>
+            <input type="text" id="username" class="input-field" placeholder="No username yet" style="text-transform: lowercase;">
+        </div>
+        <div class="info-group">
+            <label>Email (Permanent)</label>
+            <input type="text" id="email" class="input-field" disabled>
+        </div>
+
+        <button class="save-btn" onclick="updateProfile()">Save Changes</button>
+    </div>
+
+    <div class="section-title">Blocked Users</div>
+    <div class="block-list" id="blockList"></div>
+    <p style="text-align: center; font-size: 11px; color: gray; padding: 0 20px;">Tap to unblock.</p>
+
+    <script>
+        const _supa = supabase.createClient(DENEX_CONFIG.SB_URL, DENEX_CONFIG.SB_KEY);
+        let me = JSON.parse(localStorage.getItem('denex_user'));
+        let currentAvatarUrl = null;
+
+        async function loadProfile() {
+            if(!me) return location.href = 'login.html';
+            
+            toggleLoading(true);
+            const { data: user } = await _supa.from('denex_profiles').select('*').eq('id', me.id).single();
+            toggleLoading(false);
+
+            if(user) {
+                document.getElementById('firstName').value = user.first_name;
+                document.getElementById('lastName').value = user.last_name;
+                document.getElementById('username').value = user.username || "";
+                document.getElementById('email').value = user.email;
+                
+                const avatarDiv = document.getElementById('profileAvatar');
+                const deleteBtn = document.getElementById('btnDeletePhoto');
+                
+                if(user.avatar_url) {
+                    currentAvatarUrl = user.avatar_url;
+                    avatarDiv.innerHTML = `<img src="${user.avatar_url}" style="width:100%; height:100%; object-fit:cover;">`;
+                    deleteBtn.style.display = 'flex';
+                } else {
+                    currentAvatarUrl = null;
+                    avatarDiv.innerText = user.first_name[0].toUpperCase();
+                    deleteBtn.style.display = 'none';
+                }
+                loadBlocks();
+            }
+        }
+
+        async function uploadAvatar(input) {
+            const file = input.files[0];
+            if(!file) return;
+
+            toggleLoading(true);
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${me.id}/avatar_${Date.now()}.${fileExt}`;
+            
+            const { data, error } = await _supa.storage.from('avatars').upload(fileName, file, { upsert: true });
+            
+            if(data) {
+                const { data: { publicUrl } } = _supa.storage.from('avatars').getPublicUrl(fileName);
+                await _supa.from('denex_profiles').update({ avatar_url: publicUrl }).eq('id', me.id);
+                location.reload();
+            } else {
+                alert("Upload failed: " + error.message);
+            }
+            toggleLoading(false);
+        }
+
+        async function deleteAvatar() {
+            if(!confirm("Remove your profile photo?")) return;
+
+            toggleLoading(true);
+            
+            // 1. Remove from database
+            const { error: dbError } = await _supa.from('denex_profiles')
+                .update({ avatar_url: null })
+                .eq('id', me.id);
+
+            if(!dbError) {
+                // 2. Try to extract filename and delete from Storage (optional but good practice)
+                if(currentAvatarUrl) {
+                    const path = currentAvatarUrl.split('/public/avatars/')[1];
+                    if(path) await _supa.storage.from('avatars').remove([path]);
+                }
+                location.reload();
+            } else {
+                alert("Error removing photo");
+            }
+            toggleLoading(false);
+        }
+
+        async function updateProfile() {
+            const first_name = document.getElementById('firstName').value.trim();
+            const last_name = document.getElementById('lastName').value.trim();
+            const username = document.getElementById('username').value.trim().toLowerCase();
+
+            if(!first_name || !last_name) return alert("Names cannot be empty");
+
+            toggleLoading(true);
+
+            // Check username availability
+            if(username && username !== me.username) {
+                const { data: existingUser } = await _supa.from('denex_profiles')
+                    .select('id').eq('username', username).neq('id', me.id).maybeSingle();
+
+                if(existingUser) {
+                    toggleLoading(false);
+                    return alert("Username taken.");
+                }
+            }
+
+            const { error } = await _supa.from('denex_profiles').update({
+                first_name, last_name, username
+            }).eq('id', me.id);
+
+            if(!error) {
+                alert("Profile Updated!");
+                me.first_name = first_name;
+                me.username = username;
+                localStorage.setItem('denex_user', JSON.stringify(me));
+            }
+            toggleLoading(false);
+        }
+
+        async function loadBlocks() {
+            const { data: blocks } = await _supa.from('denex_blocks')
+                .select('id, blocked_id, denex_profiles!blocked_id(first_name, last_name)')
+                .eq('blocker_id', me.id);
+
+            const container = document.getElementById('blockList');
+            container.innerHTML = (blocks && blocks.length > 0) ? '' : '<p style="padding:20px; text-align:center; color:gray;">No blocked users</p>';
+
+            if(blocks) {
+                blocks.forEach(b => {
+                    const p = b.denex_profiles;
+                    const div = document.createElement('div');
+                    div.className = 'blocked-user';
+                    div.innerHTML = `
+                        <div class="avatar-main" style="width:40px; height:40px; font-size:16px;">${p.first_name[0]}</div>
+                        <div class="blocked-info">
+                            <div class="blocked-name">${p.first_name} ${p.last_name}</div>
+                        </div>
+                        <i class="fa-solid fa-unlock" style="color:var(--denex-blue); cursor:pointer"></i>
+                    `;
+                    div.onclick = () => unblock(b.id);
+                    container.appendChild(div);
+                });
+            }
+        }
+
+        async function unblock(id) {
+            if(confirm("Unblock this user?")) {
+                await _supa.from('denex_blocks').delete().eq('id', id);
+                loadBlocks();
+            }
+        }
+
+        function toggleLoading(show) {
+            document.getElementById('loading').style.display = show ? 'flex' : 'none';
+        }
+
+        loadProfile();
+    </script>
+</body>
+</html>
