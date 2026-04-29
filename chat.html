@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Denex - Chat</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root { 
+            --denex-blue: #3B99FF; 
+            --denex-bg: #f0f2f5;
+            --denex-gray: #8e8e93;
+            --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: var(--denex-bg); margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* --- HEADER --- */
+        header { background: var(--denex-blue); color: white; padding: 10px 15px; display: flex; align-items: center; gap: 10px; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .back-btn { font-size: 20px; cursor: pointer; padding: 5px; }
+        .chat-user-info { display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer; }
+        .avatar-circle { width: 40px; height: 40px; border-radius: 50%; background: #fff; color: var(--denex-blue); display: flex; align-items: center; justify-content: center; font-weight: 700; position: relative; overflow: hidden; }
+        .avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
+        .status-dot { width: 12px; height: 12px; background: #4cd137; border: 2px solid var(--denex-blue); border-radius: 50%; position: absolute; bottom: 0; right: 0; }
+
+        /* --- CHAT AREA --- */
+        #chatBox { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { max-width: 75%; padding: 10px 14px; border-radius: 18px; font-size: 15px; position: relative; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .msg.sent { background: var(--denex-blue); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .msg.received { background: white; color: #333; align-self: flex-start; border-bottom-left-radius: 4px; }
+        
+        .msg-img { width: 100%; border-radius: 10px; margin-bottom: 5px; }
+        .msg-meta { align-self: flex-end; font-size: 10px; margin-top: 4px; display: flex; align-items: center; gap: 3px; opacity: 0.8; }
+        .read-icon { color: #fff; font-size: 9px; }
+        .received .read-icon { display: none; }
+
+        /* --- LONG PRESS MENU --- */
+        #actionMenu { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); display: none; z-index: 2000; flex-direction: column; justify-content: center; align-items: center; }
+        .menu-content { background: white; width: 85%; border-radius: 20px; padding: 15px; animation: popIn 0.3s var(--spring); box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .emoji-bar { display: flex; justify-content: space-between; font-size: 24px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .emoji-bar span { cursor: pointer; transition: transform 0.1s; }
+        .emoji-bar span:active { transform: scale(1.4); }
+        .menu-btn { width: 100%; padding: 12px; border: none; background: transparent; text-align: left; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+        .delete-btn { color: #ff4757; }
+
+        /* --- INPUT AREA --- */
+        .input-area { background: white; padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #ddd; }
+        .input-wrap { flex: 1; background: #f0f2f5; border-radius: 25px; padding: 5px 15px; display: flex; align-items: center; }
+        #msgInput { border: none; background: transparent; outline: none; width: 100%; padding: 8px 0; font-size: 16px; }
+        .icon-btn { font-size: 20px; cursor: pointer; }
+
+        /* --- REPLY PREVIEW --- */
+        #replyPreview { display: none; background: #e1f0ff; padding: 8px 15px; border-left: 4px solid var(--denex-blue); margin-bottom: 5px; border-radius: 8px; font-size: 13px; position: relative; }
+
+        /* --- PROFILE MODAL --- */
+        #profileModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; width: 85%; border-radius: 25px; padding: 25px; text-align: center; animation: popIn 0.3s var(--spring); }
+        .modal-avatar-large { width: 100px; height: 100px; border-radius: 50%; background: white; color: var(--denex-blue); display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: 700; margin: 0 auto 15px; border: 4px solid var(--denex-blue); overflow: hidden; }
+        .modal-avatar-large img { width: 100%; height: 100%; object-fit: cover; }
+        .block-btn { width: 100%; background: #ff4757; color: white; border: none; padding: 12px; border-radius: 12px; margin-top: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <header>
+        <i class="fa-solid fa-arrow-left back-btn" onclick="location.href='index.html'"></i>
+        <div class="chat-user-info" onclick="showProfile()">
+            <div class="avatar-circle" id="headerAvatar">? <div class="status-dot"></div></div>
+            <div>
+                <div style="font-weight: 700;" id="headerName">Loading...</div>
+                <div style="font-size: 11px; opacity: 0.8;">Active Now</div>
+            </div>
+        </div>
+    </header>
+
+    <div id="chatBox"></div>
+
+    <div id="replyPreview">
+        <span id="replyText"></span>
+        <i class="fa-solid fa-xmark" style="position: absolute; right: 10px; top: 8px;" onclick="cancelReply()"></i>
+    </div>
+
+    <div class="input-area">
+        <i class="fa-solid fa-image icon-btn" onclick="document.getElementById('imageInput').click()" style="color:var(--denex-blue)"></i>
+        <input type="file" id="imageInput" hidden accept="image/*" onchange="uploadImage(this)">
+        <div class="input-wrap">
+            <input type="text" id="msgInput" placeholder="Message...">
+        </div>
+        <i class="fa-solid fa-paper-plane" id="sendBtn" onclick="sendMsg()" style="color:var(--denex-blue); font-size: 22px;"></i>
+    </div>
+
+    <div id="actionMenu" onclick="closeMenu()">
+        <div class="menu-content" onclick="event.stopPropagation()">
+            <div class="emoji-bar">
+                <span>🙏</span><span>👍</span><span>❤</span><span>😎</span><span>😂</span><span>😭</span><span>😬</span>
+            </div>
+            <button class="menu-btn" onclick="handleReplyFromMenu()"><i class="fa-solid fa-reply"></i> Reply</button>
+            <button id="deleteOption" class="menu-btn delete-btn" onclick="confirmDelete()"><i class="fa-solid fa-trash"></i> Delete Message</button>
+        </div>
+    </div>
+
+    <div id="profileModal" onclick="closeProfile()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-avatar-large" id="modalAvatar">?</div>
+            <h2 id="modalFullName" style="margin: 5px 0;">...</h2>
+            <p id="modalUsername" style="color: var(--denex-gray); margin: 0; font-size: 16px;">@username</p>
+            
+            <div style="background: #f8f9fa; padding: 12px; border-radius: 12px; margin-top: 15px; text-align: left;">
+                <p style="font-size: 12px; color: var(--denex-gray); margin: 0;">Email Address</p>
+                <p id="modalEmail" style="font-size: 14px; font-weight: 600; margin: 4px 0;">...</p>
+            </div>
+
+            <button class="block-btn" onclick="blockUser()">
+                <i class="fa-solid fa-ban"></i> Block User
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const _supa = supabase.createClient(DENEX_CONFIG.SB_URL, DENEX_CONFIG.SB_KEY);
+        const me = JSON.parse(localStorage.getItem('denex_user'));
+        const urlParams = new URLSearchParams(window.location.search);
+        const otherUserId = urlParams.get('id');
+        
+        let otherUser = null;
+        let replyingToId = null;
+        let selectedMsgId = null;
+        let selectedMsgText = "";
+        let pressTimer;
+        let touchStart = 0;
+
+        async function initChat() {
+            if (!me || !otherUserId) return location.href = 'index.html';
+
+            // Check if either user has blocked the other
+            const { data: blocked } = await _supa.from('denex_blocks')
+                .select('*')
+                .or(`and(blocker_id.eq.${me.id},blocked_id.eq.${otherUserId}),and(blocker_id.eq.${otherUserId},blocked_id.eq.${me.id})`)
+                .maybeSingle();
+            
+            if (blocked) {
+                alert("User don't exist");
+                return location.href = 'index.html';
+            }
+
+            // Load Other User Profile
+            const { data } = await _supa.from('denex_profiles').select('*').eq('id', otherUserId).single();
+            otherUser = data;
+            
+            document.getElementById('headerName').innerText = data.first_name;
+            updateAvatar(document.getElementById('headerAvatar'), data);
+            
+            // Auto-mark incoming messages as read
+            await _supa.from('denex_messages').update({ is_read: true }).eq('sender_id', otherUserId).eq('receiver_id', me.id);
+
+            loadMessages();
+            subscribeToMessages();
+        }
+
+        function updateAvatar(element, user) {
+            if (user.avatar_url) {
+                element.innerHTML = `<img src="${user.avatar_url}"> <div class="status-dot"></div>`;
+            } else {
+                element.innerText = user.first_name[0].toUpperCase();
+                element.innerHTML += `<div class="status-dot"></div>`;
+            }
+        }
+
+        async function loadMessages() {
+            const { data } = await _supa.from('denex_messages')
+                .select('*')
+                .or(`and(sender_id.eq.${me.id},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${me.id})`)
+                .order('created_at', { ascending: true });
+
+            const chatBox = document.getElementById('chatBox');
+            chatBox.innerHTML = '';
+            
+            data.forEach(m => {
+                const isMe = m.sender_id === me.id;
+                const div = document.createElement('div');
+                div.className = `msg ${isMe ? 'sent' : 'received'}`;
+                
+                let html = m.image_url ? `<img src="${m.image_url}" class="msg-img">` : '';
+                html += `<span>${m.content || ''}</span>`;
+                
+                const checkIcon = m.is_read ? 'fa-check-double' : 'fa-check';
+                html += `<div class="msg-meta"><i class="fa-solid ${checkIcon} read-icon"></i></div>`;
+                div.innerHTML = html;
+
+                // Long press events
+                div.onmousedown = () => startPress(m.id, isMe, m.content);
+                div.ontouchstart = (e) => { startPress(m.id, isMe, m.content); touchStart = e.touches[0].clientX; };
+                div.onmouseup = () => clearTimeout(pressTimer);
+                div.ontouchend = (e) => { 
+                    clearTimeout(pressTimer);
+                    let diff = e.changedTouches[0].clientX - touchStart;
+                    if (diff > 80) triggerReply(m.id, m.content);
+                };
+
+                chatBox.appendChild(div);
+            });
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function startPress(id, isMe, text) {
+            pressTimer = setTimeout(() => {
+                selectedMsgId = id;
+                selectedMsgText = text;
+                document.getElementById('actionMenu').style.display = 'flex';
+                document.getElementById('deleteOption').style.display = isMe ? 'flex' : 'none';
+            }, 600);
+        }
+
+        function triggerReply(id, text) {
+            replyingToId = id;
+            document.getElementById('replyPreview').style.display = 'block';
+            document.getElementById('replyText').innerText = "Replying to: " + (text ? text.substring(0, 30) + "..." : "Image");
+        }
+
+        function handleReplyFromMenu() {
+            triggerReply(selectedMsgId, selectedMsgText);
+            closeMenu();
+        }
+
+        async function confirmDelete() {
+            if (confirm("Do you want to delete this message?")) {
+                await _supa.from('denex_messages').delete().eq('id', selectedMsgId);
+                closeMenu();
+                loadMessages();
+            }
+        }
+
+        async function uploadImage(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const fileName = `${me.id}/${Date.now()}_${file.name}`;
+            const { data } = await _supa.storage.from('denex_chat_media').upload(fileName, file);
+            if (data) {
+                const { data: { publicUrl } } = _supa.storage.from('denex_chat_media').getPublicUrl(fileName);
+                await _supa.from('denex_messages').insert({ sender_id: me.id, receiver_id: otherUserId, image_url: publicUrl });
+            }
+        }
+
+        async function sendMsg() {
+            const content = document.getElementById('msgInput').value.trim();
+            if (!content && !replyingToId) return;
+            await _supa.from('denex_messages').insert({ 
+                sender_id: me.id, 
+                receiver_id: otherUserId, 
+                content, 
+                reply_to_id: replyingToId 
+            });
+            document.getElementById('msgInput').value = '';
+            cancelReply();
+        }
+
+        function cancelReply() { replyingToId = null; document.getElementById('replyPreview').style.display = 'none'; }
+        function closeMenu() { document.getElementById('actionMenu').style.display = 'none'; }
+
+        function showProfile() {
+            if(!otherUser) return;
+            document.getElementById('modalFullName').innerText = `${otherUser.first_name} ${otherUser.last_name}`;
+            document.getElementById('modalEmail').innerText = otherUser.email;
+            
+            // Check if user chose to hide username (assuming hide_username column)
+            document.getElementById('modalUsername').innerText = otherUser.hide_username ? "Username Hidden" : `@${otherUser.username}`;
+            
+            const mAvatar = document.getElementById('modalAvatar');
+            if(otherUser.avatar_url) {
+                mAvatar.innerHTML = `<img src="${otherUser.avatar_url}">`;
+            } else {
+                mAvatar.innerText = otherUser.first_name[0].toUpperCase();
+                mAvatar.style.background = "white";
+            }
+            
+            document.getElementById('profileModal').style.display = 'flex';
+        }
+
+        function closeProfile() { document.getElementById('profileModal').style.display = 'none'; }
+
+        async function blockUser() {
+            if (confirm("Block this user? You won't see them again.")) {
+                await _supa.from('denex_blocks').insert({ blocker_id: me.id, blocked_id: otherUserId });
+                location.href = 'index.html';
+            }
+        }
+
+        function subscribeToMessages() {
+            _supa.channel('chat-room').on('postgres_changes', { event: '*', table: 'denex_messages' }, () => loadMessages()).subscribe();
+        }
+
+        initChat();
+    </script>
+</body>
+</html>

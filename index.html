@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Denex - Dashboard</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+    <script src="config.js"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root { 
+            --denex-blue: #3B99FF; 
+            --denex-dark: #1c1c1e;
+            --denex-gray: #8e8e93;
+            --denex-bg: #ffffff;
+            --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background: var(--denex-bg); margin: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
+        /* --- HEADER --- */
+        header {
+            background: var(--denex-blue);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+            position: relative;
+        }
+        .header-left { display: flex; align-items: center; gap: 15px; }
+        .app-title { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+        
+        .burger-menu { cursor: pointer; padding: 5px; font-size: 20px; transition: 0.2s; }
+        .burger-menu:active { opacity: 0.6; }
+
+        /* --- DROPDOWN MENU --- */
+        .dropdown {
+            position: absolute; top: 60px; left: 15px; background: white;
+            min-width: 150px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            display: none; flex-direction: column; overflow: hidden; z-index: 200;
+            animation: popIn 0.3s var(--spring);
+        }
+        .dropdown.active { display: flex; }
+        .dropdown-item {
+            padding: 15px 20px; color: #ff4757; font-weight: 600; font-size: 14px;
+            display: flex; align-items: center; gap: 10px; cursor: pointer;
+        }
+        .dropdown-item:active { background: #fff5f5; }
+
+        /* --- GUEST MODE LOGIC --- */
+        .auth-buttons { display: none; gap: 10px; }
+        .guest-mode .auth-buttons { display: flex; }
+        .guest-mode .burger-menu { display: none; }
+        
+        /* Hide Profile and Settings in Guest Mode */
+        .guest-mode .nav-item.private { display: none; }
+
+        .btn-header { 
+            background: rgba(255,255,255,0.2); border: none; color: white; 
+            padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; 
+        }
+
+        /* --- POP-IN MESSAGE --- */
+        #denexAlert {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.5);
+            background: rgba(0, 0, 0, 0.85); color: white; padding: 15px 25px;
+            border-radius: 25px; z-index: 5000; opacity: 0; visibility: hidden;
+            transition: 0.3s var(--spring); text-align: center; font-weight: 500;
+            backdrop-filter: blur(5px); width: auto; max-width: 80%;
+        }
+        #denexAlert.show { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+
+        /* --- SEARCH & EMPTY STATE --- */
+        .search-container { padding: 10px 15px; background: #f4f4f4; }
+        .search-box { background: #e5e5ea; border-radius: 10px; display: flex; align-items: center; padding: 8px 15px; }
+        .search-box input { border: none; background: transparent; outline: none; width: 100%; margin-left: 10px; font-size: 16px; }
+
+        #empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; }
+        #mouse-lottie { width: 180px; height: 180px; }
+        .empty-text { color: var(--denex-gray); margin-top: 10px; font-size: 16px; font-weight: 500; line-height: 1.4; }
+
+        /* --- BOTTOM NAV --- */
+        .bottom-nav { display: flex; justify-content: space-around; padding: 12px 0; border-top: 1px solid #eee; background: white; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: var(--denex-gray); font-size: 11px; gap: 5px; flex: 1; cursor: pointer; }
+        .nav-item i { font-size: 20px; }
+        .nav-item.active { color: var(--denex-blue); }
+
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.8) translateY(-10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+    </style>
+</head>
+<body id="appBody">
+
+    <div id="denexAlert">Message</div>
+
+    <header>
+        <div class="header-left">
+            <i class="fa-solid fa-bars burger-menu" onclick="toggleMenu(event)"></i>
+            <span class="app-title">Denex</span>
+        </div>
+        
+        <div class="dropdown" id="userDropdown">
+            <div class="dropdown-item" onclick="handleLogout()">
+                <i class="fa-solid fa-right-from-bracket"></i> Logout
+            </div>
+        </div>
+
+        <div class="auth-buttons">
+            <button class="btn-header" onclick="location.href='login.html'">Login</button>
+            <button class="btn-header" onclick="location.href='register.html'">Register</button>
+        </div>
+    </header>
+
+    <div class="search-container">
+        <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass" style="color: #8e8e93;"></i>
+            <input type="text" id="userSearch" placeholder="Search username...">
+        </div>
+    </div>
+
+    <div id="empty-state">
+        <div id="mouse-lottie"></div>
+        <p class="empty-text">Welcome to Denex!<br><small style="opacity: 0.7;">Find friends by username to start</small></p>
+    </div>
+
+    <div class="bottom-nav">
+        <div class="nav-item active">
+            <i class="fa-solid fa-comment"></i><span>Chats</span>
+        </div>
+        <div class="nav-item private" onclick="location.href='profile.html'">
+            <i class="fa-solid fa-circle-user"></i><span>Profile</span>
+        </div>
+        <div class="nav-item private" onclick="location.href='setting.html'">
+            <i class="fa-solid fa-gear"></i><span>Settings</span>
+        </div>
+    </div>
+
+    <script>
+        const currentUser = JSON.parse(localStorage.getItem('denex_user'));
+        const alertBox = document.getElementById('denexAlert');
+        const dropdown = document.getElementById('userDropdown');
+
+        // Apply guest mode if no user session
+        if (!currentUser) {
+            document.getElementById('appBody').classList.add('guest-mode');
+        }
+
+        let _supa;
+        if (typeof DENEX_CONFIG !== 'undefined') {
+            _supa = supabase.createClient(DENEX_CONFIG.SB_URL, DENEX_CONFIG.SB_KEY);
+        }
+
+        lottie.loadAnimation({
+            container: document.getElementById('mouse-lottie'),
+            renderer: 'svg',
+            loop: true,
+            autoplay: true,
+            path: 'https://fonts.gstatic.com/s/i/short-term/release/googlestickers/mouse/v1/lottie.json' 
+        });
+
+        function popAlert(msg) {
+            alertBox.innerText = msg;
+            alertBox.classList.add('show');
+            setTimeout(() => alertBox.classList.remove('show'), 2500);
+        }
+
+        function toggleMenu(e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('active');
+        }
+
+        window.onclick = () => dropdown.classList.remove('active');
+
+        function handleLogout() {
+            localStorage.removeItem('denex_user');
+            popAlert("Logged out successfully");
+            setTimeout(() => location.href = 'login.html', 1200);
+        }
+
+        const searchInput = document.getElementById('userSearch');
+        searchInput.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                const query = searchInput.value.trim().toLowerCase();
+                if (!currentUser) return popAlert("Login to search users");
+                if (!query) return;
+
+                popAlert("Searching...");
+                
+                try {
+                    const { data, error } = await _supa
+                        .from('denex_profiles')
+                        .select('username, first_name')
+                        .eq('username', query)
+                        .maybeSingle();
+
+                    if (data) {
+                        popAlert(`Found ${data.first_name}!`);
+                    } else {
+                        popAlert("User not found");
+                    }
+                } catch (err) {
+                    popAlert("Search failed");
+                }
+            }
+        });
+    </script>
+</body>
+</html>
