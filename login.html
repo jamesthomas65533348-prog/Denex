@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Denex - Welcome Back</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+
+    <div id="denexToast">Message</div>
+
+    <div class="container">
+        <div class="logo-wrap">
+            <div class="logo-bubbles">
+                <div class="bubble-main"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+                <div class="bubble-sub"></div>
+            </div>
+            <div class="logo-text">Denex</div>
+            <p class="welcome-text">Welcome back!</p>
+        </div>
+
+        <div class="form-group">
+            <input type="email" id="loginEmail" placeholder="Email Address">
+        </div>
+        
+        <div class="form-group">
+            <input type="password" id="loginPass" placeholder="Password">
+            <i class="fa-solid fa-eye eye-toggle" id="eyeIcon" onclick="togglePass()"></i>
+        </div>
+
+        <button class="login-btn" id="loginBtn" onclick="handleLogin()">Login to Account</button>
+
+        <div class="footer-links">
+            Don't have an account? <b onclick="location.href='register.html'">Join Denex</b>
+        </div>
+    </div>
+
+    <script src="login.js"></script>
+</body>
+</html>

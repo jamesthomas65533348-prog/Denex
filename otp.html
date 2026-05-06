@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Verify Denex</title>
+    
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="otp.css">
+</head>
+<body>
+
+    <div id="denexToast">Verification code sent!</div>
+
+    <div class="otp-container">
+        <div class="logo-bubbles">
+            <div class="bubble-main"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+            <div class="bubble-sub"></div>
+        </div>
+        
+        <h2>Verify Account</h2>
+        <p>Enter the 6-digit code sent to <br><span id="target-email">loading...</span></p>
+
+        <div class="otp-input-group">
+            <input type="number" class="otp-box" pattern="\d*" inputmode="numeric">
+            <input type="number" class="otp-box" pattern="\d*" inputmode="numeric">
+            <input type="number" class="otp-box" pattern="\d*" inputmode="numeric">
+            <input type="number" class="otp-box" pattern="\d*" inputmode="numeric">
+            <input type="number" class="otp-box" pattern="\d*" inputmode="numeric">
+            <input type="number" class="otp-box" pattern="\d*" inputmode="numeric">
+        </div>
+
+        <button class="verify-btn" onclick="checkOTP()">Verify Identity</button>
+
+        <div class="resend-section">
+            <span id="timer-wrap">Resend code in <span id="timer">03:00</span></span>
+            <span id="resend-btn" onclick="resendCode()">Resend Now</span>
+        </div>
+    </div>
+
+    <script src="otp.js"></script>
+</body>
+</html>

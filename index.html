@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Denex - Dashboard</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="index.css">
+</head>
+<body id="appBody">
+
+    <div id="denexAlert">Message</div>
+
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-card">
+            <h3 id="modalTitle">Block User?</h3>
+            <p id="modalMsg">Are you sure you want to block this user?</p>
+            <div class="modal-btns">
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn-confirm" id="modalActionBtn">Block</button>
+            </div>
+        </div>
+    </div>
+
+    <header>
+        <div class="denex-logo-box">
+            <b>DENEX</b>
+            <span>Messenger</span>
+        </div>
+        <div class="header-right">
+            <div class="user-badge" id="topProfile" onclick="location.href='profile.html'">
+                <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" id="headAvatar">
+                <span id="headUname">Guest</span>
+            </div>
+            <i class="fa-solid fa-bars burger-menu" onclick="toggleMenu(event)"></i>
+        </div>
+    </header>
+
+    <div class="dropdown" id="userDropdown">
+        <div class="menu-header"><h2 style="margin:0; color:var(--denex-blue); font-weight:800;">Denex</h2></div>
+        <div class="dropdown-item" onclick="location.href='index.html'"><i class="fa-solid fa-comment"></i> Chats</div>
+        <div class="dropdown-item" onclick="location.href='profile.html'"><i class="fa-solid fa-circle-user"></i> Profile</div>
+        <div class="dropdown-item" onclick="location.href='setting.html'"><i class="fa-solid fa-gear"></i> Settings</div>
+        <div class="dropdown-item logout" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</div>
+    </div>
+
+    <div class="search-container">
+        <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass" style="color: #8e8e93; font-size: 18px;"></i>
+            <input type="text" id="userSearch" placeholder="Search username to chat...">
+        </div>
+    </div>
+
+    <div id="guestUI">
+        <h2 style="color: var(--denex-dark); font-weight:800; font-size: 28px;">Denex</h2>
+        <p style="color: var(--denex-gray); font-weight: 500;">Login to start chatting with friends.</p>
+        <button class="btn-login" onclick="location.href='login.html'">Login Now</button>
+    </div>
+
+    <div id="empty-state">
+        <div class="d-container">
+            <div class="d-symbol">D</div>
+            <div class="hand-wave">👋</div>
+        </div>
+        <h3 style="margin:0; font-weight:800;">Welcome to Denex!</h3>
+        <p style="opacity: 0.6; font-size: 15px; margin-top: 10px;">Search a friend to start chatting</p>
+    </div>
+
+    <div id="chatList"></div>
+
+    <script src="index.js"></script>
+</body>
+</html>
