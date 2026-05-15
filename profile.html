@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Denex - My Profile</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root { 
+            --denex-blue: #3B99FF; 
+            --denex-bg: #f0f2f5; 
+            --denex-gray: #8e8e93;
+            --denex-dark: #1c1c1e;
+            --spring: cubic-bezier(0.34, 1.56, 0.64, 1); 
+        }
+
+        /* --- BASE --- */
+        * { 
+            -webkit-tap-highlight-color: transparent; 
+            box-sizing: border-box; 
+            font-family: 'Segoe UI', -apple-system, sans-serif; 
+            margin: 0; padding: 0;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        input { -webkit-user-select: text !important; user-select: text !important; }
+
+        body { background: var(--denex-bg); padding-bottom: 50px; overflow-x: hidden; transition: background 0.8s ease; min-height: 100vh; }
+
+        /* --- PREMIUM ANIMATIONS --- */
+        body.premium-mode-active {
+            background: linear-gradient(-45deg, #3B99FF, #ffffff, #e3f0ff, #ffffff);
+            background-size: 400% 400%;
+            animation: premiumWater 12s ease infinite;
+            background-attachment: fixed;
+        }
+
+        @keyframes premiumWater {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .premium-watermark-overlay {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            display: flex; flex-wrap: wrap; gap: 50px; padding: 20px;
+            opacity: 0.03; transform: rotate(-25deg) scale(1.5);
+        }
+        .premium-watermark-overlay span { font-size: 35px; font-weight: 900; }
+
+        /* --- HEADERS (DYNAMIC ISLAND & STANDARD) --- */
+        .island-header { 
+            position: sticky; top: 0; z-index: 1000; 
+            padding: 15px; padding-top: calc(15px + env(safe-area-inset-top));
+        }
+        .island-container { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .island-pill {
+            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 22px;
+            display: flex; align-items: center; height: 42px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15); transition: 0.3s var(--spring);
+        }
+        .island-pill:active { transform: scale(0.9); }
+        .left-pill { padding: 0 16px; gap: 10px; }
+        .brand-text { font-size: 13px; font-weight: 800; color: var(--denex-blue); letter-spacing: 0.5px; }
+        .middle-pill { flex: 1; justify-content: center; gap: 8px; }
+        .status-text { font-size: 10px; font-weight: 900; letter-spacing: 1px; }
+        .verified-icon { color: var(--denex-blue); font-size: 14px; }
+        .right-pill { width: 42px; justify-content: center; }
+
+        header { 
+            background: var(--denex-blue); color: white; padding: 15px; 
+            padding-top: calc(15px + env(safe-area-inset-top));
+            display: flex; align-items: center; justify-content: space-between; 
+            position: sticky; top: 0; z-index: 100; 
+        }
+        .header-left { display: flex; align-items: center; gap: 15px; font-size: 18px; font-weight: 600; }
+
+        /* --- PROFILE CARD --- */
+        .profile-card { 
+            position: relative; z-index: 1;
+            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            margin: 20px 15px; padding: 30px 20px; border-radius: 28px; 
+            text-align: center; border: 1px solid rgba(255,255,255,0.5);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            animation: slideInUp 0.6s var(--spring);
+        }
+
+        /* --- AVATAR & BADGES --- */
+        .avatar-container { position: relative; width: 115px; height: 115px; margin: 0 auto 20px; }
+        .avatar-main { 
+            width: 100%; height: 100%; border-radius: 50%; object-fit: cover; 
+            border: 4px solid #fff; background: #fff; display: flex; 
+            align-items: center; justify-content: center; font-size: 40px; 
+            color: var(--denex-blue); font-weight: bold; overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        .photo-verified-badge {
+            position: absolute; top: 5px; right: 5px; background: var(--denex-blue);
+            color: white; width: 24px; height: 24px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; border: 2px solid white; z-index: 4;
+        }
+
+        .avatar-actions { position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 3; }
+        .action-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; cursor: pointer; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: 0.2s var(--spring); }
+        .edit-btn { background: var(--denex-blue); }
+        .delete-btn { background: #ff4757; } 
+
+        /* --- INPUTS --- */
+        .info-group { text-align: left; margin-bottom: 18px; }
+        .info-group label { font-size: 11px; color: var(--denex-gray); font-weight: 800; text-transform: uppercase; margin-left: 5px; display: block; margin-bottom: 6px; }
+        .input-field { 
+            width: 100%; padding: 14px 18px; border-radius: 16px; border: 1.5px solid rgba(0,0,0,0.05); 
+            font-size: 16px; outline: none; background: rgba(255,255,255,0.6); transition: 0.3s;
+        }
+        .input-field:focus { border-color: var(--denex-blue); background: white; box-shadow: 0 0 0 4px rgba(59,153,255,0.1); }
+        .input-field:disabled { background: rgba(245,245,245,0.5); color: #999; }
+
+        .save-btn { 
+            background: var(--denex-blue); color: white; border: none; width: 100%; padding: 16px; 
+            border-radius: 16px; font-weight: 700; margin-top: 10px; transition: 0.4s var(--spring);
+            box-shadow: 0 8px 25px rgba(59, 153, 255, 0.3);
+            display: none; transform: translateY(20px); opacity: 0;
+        }
+        .save-btn.visible { display: block; transform: translateY(0); opacity: 1; }
+
+        /* --- BLOCKED LIST --- */
+        .section-label { padding: 0 25px; font-size: 11px; color: var(--denex-gray); font-weight: 800; text-transform: uppercase; margin-top: 30px; letter-spacing: 0.5px; }
+        .section-title { padding: 5px 25px 12px; font-size: 18px; color: var(--denex-dark); font-weight: 800; }
+        .block-list { background: rgba(255,255,255,0.8); margin: 10px 15px; border-radius: 20px; overflow: hidden; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+        .blocked-user { padding: 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(0,0,0,0.05); transition: background 0.2s; }
+        .blocked-user:active { background: rgba(0,0,0,0.03); }
+        .blocked-content { display: flex; align-items: center; gap: 12px; }
+        .blocked-avatar-sm { width: 42px; height: 42px; background: var(--denex-blue); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .unblock-btn { background: #f0f2f5; color: #ff4757; border: none; padding: 8px 14px; border-radius: 12px; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+
+        /* --- POPUPS & EDITOR --- */
+        .denex-popup-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(15px) saturate(180%); -webkit-backdrop-filter: blur(15px) saturate(180%); display: none; align-items: center; justify-content: center; z-index: 5000; padding: 20px; }
+        .denex-popup-overlay.active { display: flex; }
+        .denex-popup-card { background: rgba(255, 255, 255, 0.9); width: 100%; max-width: 320px; border-radius: 35px; padding: 35px 25px; text-align: center; border: 1px solid rgba(255,255,255,0.6); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); animation: modalBounce 0.5s var(--spring); }
+        .popup-icon { font-size: 45px; color: var(--denex-blue); margin-bottom: 15px; filter: drop-shadow(0 4px 8px rgba(59,153,255,0.3)); }
+        .popup-title { font-weight: 800; font-size: 22px; color: var(--denex-dark); margin-bottom: 10px; }
+        .popup-msg { font-size: 15px; color: #4a4a4a; line-height: 1.6; margin-bottom: 25px; padding: 0 10px;}
+        .popup-btns { display: flex; gap: 12px; }
+        .popup-btn { flex: 1; padding: 16px; border-radius: 18px; border: none; font-weight: 700; font-size: 14px; transition: 0.2s; cursor: pointer; }
+        .btn-cancel { background: #efeff0; color: #333; }
+        .btn-confirm { background: var(--denex-blue); color: white; }
+
+        .editor-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); }
+        #previewCanvas { width: 280px; height: 280px; border-radius: 50%; border: 4px solid var(--denex-blue); margin: 20px auto; display: block; object-fit: cover; }
+
+        #loading { position: fixed; inset: 0; background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); display: none; align-items: center; justify-content: center; z-index: 9999; }
+
+        @keyframes slideInUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes modalBounce { 0% { transform: scale(0.7) translateY(30px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+    </style>
+</head>
+<body class="profile-page">
+
+    <div id="loading">
+        <i class="fa-solid fa-circle-notch fa-spin fa-2x" style="color:var(--denex-blue)"></i>
+    </div>
+
+    <div id="premiumWatermark" class="premium-watermark-overlay" style="display: none;">
+        <span>PREMIUM USER</span><span>PREMIUM USER</span><span>PREMIUM USER</span><span>PREMIUM USER</span>
+    </div>
+
+    <div class="editor-overlay" id="editorOverlay">
+        <div class="editor-container" style="text-align: center;">
+            <h2 style="color:white; margin-bottom:20px; font-weight: 800;">Edit Photo</h2>
+            <canvas id="previewCanvas"></canvas>
+            <div class="editor-tools" style="margin-bottom: 20px;">
+                <button class="action-btn edit-btn" style="width: 50px; height: 50px; margin: 0 auto;" onclick="rotateImage()">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+            <div class="popup-btns" style="padding: 0 20px;">
+                <button class="popup-btn btn-cancel" onclick="closeEditor()">Cancel</button>
+                <button class="popup-btn btn-confirm" onclick="finalUpload()">Set Photo</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="denex-popup-overlay" id="denexPopupOverlay">
+        <div class="denex-popup-card">
+            <div class="popup-icon"><i class="fa-solid fa-crown"></i></div>
+            <div class="popup-title" id="popupTitle">Notice</div>
+            <div class="popup-msg" id="popupMsg">Message goes here.</div>
+            <div class="popup-btns" id="popupActions"></div>
+        </div>
+    </div>
+
+    <div id="premiumHeader" class="island-header" style="display: none;">
+        <div class="island-container">
+            <div class="island-pill left-pill" onclick="location.href='index.html'">
+                <i class="fa-solid fa-chevron-left"></i>
+                <b class="brand-text">DENEX</b>
+            </div>
+            <div class="island-pill middle-pill">
+                <span class="status-text">PREMIUM</span>
+                <i class="fa-solid fa-circle-check verified-icon"></i>
+            </div>
+            <div class="island-pill right-pill" onclick="location.href='setting.html'">
+                <i class="fa-solid fa-gear"></i>
+            </div>
+        </div>
+    </div>
+
+    <header id="standardHeader">
+        <div class="header-left">
+            <i class="fa-solid fa-arrow-left" onclick="location.href='index.html'" style="cursor: pointer;"></i>
+            <span>My Profile</span>
+        </div>
+        <i class="fa-solid fa-gear" onclick="location.href='setting.html'" style="font-size: 20px; cursor: pointer;"></i>
+    </header>
+
+    <div class="profile-card">
+        <div class="avatar-container">
+            <div class="avatar-main" id="profileAvatar">?</div>
+            
+            <div class="photo-verified-badge" id="photoVerifiedBadge" style="display: none;">
+                <i class="fa-solid fa-check"></i>
+            </div>
+
+            <div class="avatar-actions">
+                <div id="btnDeletePhoto" class="action-btn delete-btn" style="display: none;" onclick="askDeletePhoto()">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <label for="avatarInput" class="action-btn edit-btn">
+                    <i class="fa-solid fa-camera"></i>
+                </label>
+            </div>
+            <input type="file" id="avatarInput" hidden accept="image/*" onchange="openEditor(this)">
+        </div>
+
+        <div class="info-group">
+            <label>First Name</label>
+            <input type="text" id="firstName" class="input-field" spellcheck="false" placeholder="Enter first name" oninput="checkChanges()">
+        </div>
+        <div class="info-group">
+            <label>Last Name</label>
+            <input type="text" id="lastName" class="input-field" spellcheck="false" placeholder="Enter last name" oninput="checkChanges()">
+        </div>
+        <div class="info-group">
+            <label>Username</label>
+            <input type="text" id="username" class="input-field" placeholder="@username" style="text-transform: lowercase;" spellcheck="false" oninput="checkChanges()">
+        </div>
+        <div class="info-group">
+            <label>Email (Permanent)</label>
+            <input type="text" id="email" class="input-field" disabled>
+        </div>
+
+        <button id="saveBtn" class="save-btn" onclick="updateProfile()">Save Changes</button>
+    </div>
+
+    <div class="section-label">Privacy Control</div>
+    <div class="section-title">Blocked Users</div>
+    <div id="blockList" class="block-list">
+        </div>
+
+    <script src="profile.js"></script>
+    <script>
+        function checkChanges() {
+            const btn = document.getElementById('saveBtn');
+            btn.classList.add('visible');
+        }
+    </script>
+</body>
+</html>

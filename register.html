@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Denex - Join Now</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root { 
+            --denex-blue: #3B99FF; 
+            --denex-light: #f0f7ff;
+            --denex-white: #ffffff;
+            --denex-red: #ff4757;
+            --text-gray: #666;
+            --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        * { 
+            -webkit-tap-highlight-color: transparent; 
+            box-sizing: border-box; 
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            user-select: none; 
+            -webkit-user-select: none;
+            -webkit-touch-callout: none; 
+        }
+
+        body { 
+            background: var(--denex-white); 
+            margin: 0; 
+            overflow-x: hidden; 
+            color: #333; 
+        }
+
+        /* --- LOGO --- */
+        .logo-wrap { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            margin: 40px 0 10px; 
+            animation: logoSpring 0.8s var(--spring);
+        }
+        @keyframes logoSpring { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .logo-bubbles { position: relative; width: 80px; height: 70px; }
+        .bubble-main { 
+            position: absolute; width: 55px; height: 55px; background: var(--denex-blue); 
+            border-radius: 50% 50% 0 50%; display: flex; align-items: center; justify-content: center; z-index: 2;
+        }
+        .bubble-sub { 
+            position: absolute; width: 45px; height: 45px; background: #96C9FF; 
+            border-radius: 50% 50% 50% 0; bottom: 0; right: 0; opacity: 0.7; z-index: 1;
+        }
+        .dots { display: flex; gap: 4px; }
+        .dot { width: 6px; height: 6px; background: white; border-radius: 50%; }
+        .logo-text { font-size: 32px; font-weight: 700; color: var(--denex-blue); margin-top: 5px; letter-spacing: -1px; }
+
+        /* --- INPUTS --- */
+        .container { padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .form-group { width: 100%; max-width: 380px; margin-bottom: 12px; position: relative; }
+        .input-label { font-size: 13px; color: #999; margin-left: 12px; font-weight: 600; }
+
+        input { 
+            width: 100%; padding: 18px; border-radius: 16px; border: 1.5px solid #eee; 
+            background: #fafafa; font-size: 16px; outline: none; transition: 0.4s var(--spring);
+            user-select: text; -webkit-user-select: text; 
+        }
+        input:focus { 
+            border-color: var(--denex-blue); 
+            background: #fff; 
+            transform: scale(1.02);
+            box-shadow: 0 10px 20px rgba(59,153,255,0.08); 
+        }
+
+        #ageBadge {
+            position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
+            background: var(--denex-blue); color: white; padding: 4px 10px;
+            border-radius: 10px; font-size: 12px; font-weight: 700; transition: 0.3s;
+        }
+
+        /* --- BUTTONS --- */
+        .next-btn {
+            width: 100%; max-width: 380px; padding: 18px; background: var(--denex-blue);
+            color: white; border: none; border-radius: 18px; font-weight: 700; font-size: 16px;
+            cursor: pointer; transition: 0.4s var(--spring); margin-top: 10px;
+            box-shadow: 0 5px 15px rgba(59,153,255,0.2);
+        }
+        .next-btn:active { transform: scale(0.92); } 
+        .next-btn:disabled { background: #cbd5e0; cursor: not-allowed; box-shadow: none; opacity: 0.7; }
+
+        .login-link { margin-top: 25px; font-size: 14px; color: var(--text-gray); }
+        .login-link b { color: var(--denex-blue); cursor: pointer; padding: 5px; }
+
+        /* --- GLASS TOAST --- */
+        #denexToast {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(59, 153, 255, 0.85); 
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            color: white; padding: 18px 30px; border-radius: 24px; z-index: 5000; 
+            opacity: 0; visibility: hidden; transition: 0.4s var(--spring); 
+            font-weight: 600; text-align: center; min-width: 250px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        #denexToast.show { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+
+        /* --- MODAL --- */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; z-index: 2000; display: none; flex-direction: column;
+            padding: 30px 20px; animation: modalBouncy 0.6s var(--spring);
+        }
+        @keyframes modalBouncy { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .modal-nav i { color: var(--denex-blue); font-size: 24px; padding: 10px; cursor: pointer; transition: 0.2s; }
+        .modal-nav i:active { transform: scale(0.8); }
+
+        .step-box { display: none; flex-direction: column; align-items: center; width: 100%; }
+        .step-box.active { display: flex; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .step-title { color: var(--denex-blue); font-size: 28px; margin-bottom: 5px; }
+        .step-desc { text-align: center; color: #888; max-width: 280px; margin-bottom: 25px; }
+
+        .avatar-circle {
+            width:110px; height:110px; border-radius:50%; 
+            background:var(--denex-light); border:2.5px dashed var(--denex-blue); 
+            display:flex; align-items:center; justify-content:center; 
+            margin:20px 0; position:relative; transition: 0.3s var(--spring);
+        }
+        .avatar-circle i { font-size:28px; color:var(--denex-blue); }
+        .avatar-circle input { position:absolute; inset:0; opacity:0; cursor: pointer; }
+        .avatar-circle:active { transform: scale(0.9); }
+    </style>
+</head>
+<body>
+
+    <div id="denexToast">Message</div>
+
+    <div class="container" id="mainView">
+        <div class="logo-wrap">
+            <div class="logo-bubbles">
+                <div class="bubble-main"><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+                <div class="bubble-sub"></div>
+            </div>
+            <div class="logo-text">Denex</div>
+            <p style="color:var(--text-gray); margin: 5px 0 20px; font-weight: 500;">Your world, connected.</p>
+        </div>
+
+        <div class="form-group"><input type="text" id="fname" placeholder="First Name" oninput="checkInputs()"></div>
+        <div class="form-group"><input type="text" id="lname" placeholder="Last Name" oninput="checkInputs()"></div>
+        <div class="form-group">
+            <input type="password" id="pass" placeholder="Password (6-10 chars)" oninput="validatePass()">
+        </div>
+        
+        <div class="form-group">
+            <label class="input-label">Date of Birth</label>
+            <div style="position:relative; margin-top: 5px;">
+                <input type="date" id="dob" onchange="calculateAge()">
+                <span id="ageBadge">0 yrs</span>
+            </div>
+        </div>
+
+        <button class="next-btn" id="mainNextBtn" onclick="openStep('email_step')" disabled>Next Step</button>
+
+        <div class="login-link">
+            Already have an account? <b onclick="location.href='login.html'">Login</b>
+        </div>
+    </div>
+
+    <div id="denexModal" class="modal">
+        <div class="modal-nav">
+            <i class="fa-solid fa-arrow-left" onclick="closeModal()"></i>
+        </div>
+
+        <div id="email_step" class="step-box active">
+            <h2 class="step-title">Verify Identity</h2>
+            <p class="step-desc">Enter your email to secure your Denex account.</p>
+            <div class="form-group"><input type="email" id="userEmail" placeholder="email@example.com"></div>
+            <button class="next-btn" id="sendBtn" onclick="handleSendOTP()">Get Code</button>
+        </div>
+
+        <div id="profile_step" class="step-box">
+            <h2 class="step-title">Final Touch</h2>
+            <div class="avatar-circle">
+                <i class="fa-solid fa-camera"></i>
+                <input type="file" id="pic" accept="image/*">
+            </div>
+            <div class="form-group">
+                <input type="text" id="uname" placeholder="username" style="text-transform: lowercase;">
+            </div>
+            <button class="next-btn" id="finishBtn" onclick="saveToDatabase()">Finish Registration</button>
+        </div>
+    </div>
+
+    <script src="register.js"></script>
+</body>
+</html>

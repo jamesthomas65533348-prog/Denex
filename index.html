@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Denex - Dashboard</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root { 
+            --denex-blue: #3B99FF; 
+            --denex-dark: #1c1c1e;
+            --denex-gray: #8e8e93;
+            /* UPDATE: Changed background to a soft ghost-white */
+            --denex-bg: #f2f4f7;
+            --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* --- UI HYGIENE --- */
+        * { 
+            -webkit-tap-highlight-color: transparent; 
+            box-sizing: border-box; 
+            font-family: 'Segoe UI', -apple-system, sans-serif; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body { 
+            background: var(--denex-bg); 
+            margin: 0; 
+            overflow: hidden; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+        }
+
+        /* --- GLASS HEADER --- */
+        header {
+            background: rgba(59, 153, 255, 0.95);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            color: white;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 15px rgba(59,153,255,0.15);
+            z-index: 100;
+        }
+
+        .denex-logo-box { display: flex; flex-direction: column; line-height: 1.1; }
+        .denex-logo-box b { font-size: 20px; letter-spacing: 1px; }
+        .denex-logo-box span { font-size: 10px; font-weight: 600; opacity: 0.8; text-transform: uppercase; letter-spacing: 1.5px; }
+
+        .user-badge { display: flex; align-items: center; gap: 10px; cursor: pointer; transition: 0.3s var(--spring); }
+        .user-badge:active { transform: scale(0.9); }
+        .user-badge img { width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 2px solid white; object-fit: cover; }
+        .user-badge span { font-weight: 700; font-size: 15px; letter-spacing: -0.3px; }
+
+        .header-right { display: flex; align-items: center; gap: 15px; }
+
+        /* TYPING INDICATOR */
+        .is-typing { color: var(--denex-blue) !important; font-style: italic; font-weight: 600 !important; }
+
+        /* --- GUEST UI --- */
+        #guestUI { display: none; padding: 40px 20px; text-align: center; flex: 1; animation: fadeIn 0.5s ease; }
+        .guest-mode #guestUI { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .btn-login { 
+            background: var(--denex-blue); color: white; border: none; padding: 16px 40px; 
+            border-radius: 20px; font-weight: 700; margin-top: 25px; transition: 0.3s var(--spring);
+            box-shadow: 0 10px 20px rgba(59,153,255,0.2);
+        }
+
+        /* --- SIDEBAR MENU --- */
+        .dropdown {
+            position: fixed; top: 0; right: -300px; width: 280px; height: 100%;
+            background: white; box-shadow: -15px 0 40px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; z-index: 1000;
+            transition: 0.5s var(--spring);
+            border-radius: 25px 0 0 25px;
+        }
+        .dropdown.active { right: 0; }
+        .menu-header { padding: 40px 25px 20px; border-bottom: 1px solid #f0f0f0; }
+        .dropdown-item {
+            padding: 20px 25px; color: var(--denex-dark); font-weight: 600; font-size: 16px;
+            display: flex; align-items: center; gap: 15px; cursor: pointer; transition: 0.2s;
+        }
+        .dropdown-item i { color: var(--denex-blue); width: 24px; font-size: 18px; }
+        .logout { color: #ff4757 !important; border-top: 1px solid #f0f0f0; margin-top: auto; padding-bottom: 40px; }
+
+        /* --- CHAT LIST --- */
+        #chatList { flex: 1; overflow-y: auto; display: none; padding-bottom: 100px; }
+        .chat-item { 
+            display: flex; align-items: center; padding: 16px 20px; 
+            border-bottom: 1px solid rgba(0,0,0,0.05); gap: 15px; cursor: pointer;
+            transition: 0.3s var(--spring);
+            animation: itemAppear 0.5s var(--spring) backwards;
+        }
+
+        /* UPGRADE: Morphic Glass for Chat List (Premium Only) */
+        body.premium-mode-active .chat-item {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            margin: 8px 15px;
+            border-radius: 18px;
+            border-bottom: none;
+        }
+
+        @keyframes itemAppear { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .chat-item:active { background: rgba(59,153,255,0.08); transform: scale(0.97); }
+
+        .pfp-wrap { position: relative; width: 54px; height: 54px; }
+        .pfp-wrap img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; background: #f5f5f5; }
+        .online-status { position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; background: #bdc3c7; border: 2.5px solid var(--denex-bg); border-radius: 50%; }
+        .online-status.active { background: #4cd137; box-shadow: 0 0 10px rgba(76,209,55,0.4); }
+        .unread-dot { position: absolute; top: 0; right: 0; width: 15px; height: 15px; background: #ff4757; border: 2.5px solid var(--denex-bg); border-radius: 50%; }
+
+        .chat-info { flex: 1; }
+        .chat-info h4 { margin: 0; font-size: 17px; color: var(--denex-dark); font-weight: 700; }
+        .chat-info p { margin: 4px 0 0; font-size: 14px; color: var(--denex-gray); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+
+        /* --- FLOATING D --- */
+        #empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; }
+        .d-container { position: relative; width: 130px; height: 130px; margin-bottom: 25px; animation: float 3.5s ease-in-out infinite; }
+        .d-symbol { font-size: 110px; font-weight: 900; color: var(--denex-blue); text-shadow: 0 10px 25px rgba(59,153,255,0.25); }
+        .hand-wave { position: absolute; top: 10px; right: -5px; font-size: 45px; animation: wave 1.8s ease-in-out infinite alternate; transform-origin: bottom right; }
+
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+        @keyframes wave { 0% { transform: rotate(-10deg); } 100% { transform: rotate(30deg); } }
+
+        /* --- SEARCH --- */
+        .search-container { padding: 15px 20px; background: transparent; transition: all 0.4s var(--spring); }
+        .search-box { background: rgba(0,0,0,0.05); border-radius: 16px; display: flex; align-items: center; padding: 12px 18px; transition: 0.4s var(--spring); border: 1.5px solid transparent; }
+        .search-box:focus-within { background: #fff; border-color: var(--denex-blue); transform: scale(1.02); }
+        .search-box input { border: none; background: transparent; outline: none; width: 100%; margin-left: 10px; font-size: 16px; font-weight: 500; }
+
+        /* --- POPUPS --- */
+        #denexAlert {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            color: white; padding: 16px 28px; border-radius: 24px; z-index: 5000; 
+            opacity: 0; visibility: hidden; transition: 0.4s var(--spring); font-weight: 600; text-align: center;
+        }
+        #denexAlert.show { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 6000; }
+        .modal-card { background: white; width: 85%; max-width: 320px; border-radius: 28px; padding: 25px; text-align: center; transform: scale(0.7); opacity: 0; transition: 0.4s var(--spring); }
+        .modal-overlay.active { display: flex; }
+        .modal-overlay.active .modal-card { transform: scale(1); opacity: 1; }
+        .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-btns button { flex: 1; padding: 14px; border-radius: 15px; border: none; font-weight: 700; cursor: pointer; }
+        .btn-cancel { background: #f1f3f5; color: var(--denex-dark); }
+        .btn-confirm { background: #ff4757; color: white; }
+
+        /* --- BOTTOM DOCK STYLES --- */
+        .bottom-dock-container {
+            position: fixed; bottom: 25px; left: 0; width: 100%;
+            display: flex; justify-content: center; z-index: 2000; pointer-events: none;
+        }
+
+        .bottom-dock-pill {
+            background: rgba(28, 28, 30, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            width: 90%; max-width: 400px; height: 65px; border-radius: 35px;
+            display: flex; align-items: center; justify-content: space-around;
+            padding: 0 10px; box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1); pointer-events: auto;
+        }
+
+        .dock-item { color: rgba(255,255,255,0.4); font-size: 22px; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; transition: 0.3s var(--spring); }
+        .dock-item.active { color: var(--denex-blue); transform: scale(1.15); }
+        .logout-accent { color: #ff4757; }
+
+        /* --- TRIPLE DYNAMIC ISLAND --- */
+        #premiumHeader {
+            padding: 12px 15px; z-index: 1000;
+        }
+        .island-container {
+            display: flex; justify-content: space-between; align-items: center; gap: 8px;
+        }
+        .island-pill {
+            background: rgba(28, 28, 30, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1); color: white; padding: 8px 14px; border-radius: 24px;
+            display: flex; align-items: center; box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            animation: islandFloat 3s ease-in-out infinite alternate;
+        }
+        .brand-island { flex-direction: column; align-items: flex-start; line-height: 1; }
+        .brand-island b { font-size: 14px; color: var(--denex-blue); letter-spacing: 0.5px; }
+        .brand-island span { font-size: 7px; opacity: 0.6; text-transform: uppercase; }
+
+        .status-island { font-size: 9px; font-weight: 800; border: 1px solid rgba(59, 153, 255, 0.4); color: #fff; }
+
+        .profile-island { gap: 8px; cursor: pointer; transition: 0.3s var(--spring); }
+        .profile-island span { font-size: 10px; font-weight: 700; }
+        .profile-island img { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--denex-blue); object-fit: cover; }
+
+        @keyframes islandFloat { from { transform: translateY(0); } to { transform: translateY(5px); } }
+
+        /* --- IPHONE GLASSMORPHIC DOCK --- */
+        .bottom-dock-pill.glass-premium {
+            background: rgba(245, 247, 250, 0.7) !important;
+            backdrop-filter: blur(25px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.5) !important;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08) !important;
+        }
+        .glass-premium .dock-item { color: rgba(0, 0, 0, 0.3); }
+        .glass-premium .dock-item.active { color: var(--denex-blue); }
+
+        /* --- PREMIUM UI ENHANCEMENTS --- */
+        .neon-premium {
+            color: #fff; font-weight: 900; font-style: italic; margin-left: 6px;
+            text-shadow: 0 0 7px #fff, 0 0 10px #3B99FF, 0 0 21px #3B99FF;
+            animation: neonPulse 1.5s infinite alternate;
+        }
+        @keyframes neonPulse { from { opacity: 0.8; } to { opacity: 1; text-shadow: 0 0 15px #3B99FF, 0 0 25px #00d2ff; } }
+
+        #denexAlert.premium-mode {
+            background: linear-gradient(135deg, rgba(28, 28, 30, 0.95), rgba(59, 153, 255, 0.35));
+            border: 1.5px solid #3B99FF; box-shadow: 0 0 25px rgba(59, 153, 255, 0.5);
+        }
+
+        .chat-item.premium-member .pfp-wrap::before {
+            content: ''; position: absolute; top: -3px; left: -3px; right: -3px; bottom: -3px;
+            background: linear-gradient(45deg, #3B99FF, #00d2ff, #fff, #3B99FF);
+            background-size: 400%; border-radius: 50%; z-index: -1;
+            animation: glowRotate 3s linear infinite; filter: blur(4px);
+        }
+        @keyframes glowRotate { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+        .verified-badge-list {
+            background: #0095f6; color: white; width: 14px; height: 14px; font-size: 8px;
+            display: inline-flex; align-items: center; justify-content: center; margin-left: 5px;
+            clip-path: polygon(100% 50%, 94.46% 65.45%, 80.9% 76.94%, 65.45% 80.9%, 50% 86.6%, 34.55% 80.9%, 19.1% 76.94%, 5.54% 65.45%, 0% 50%, 5.54% 34.55%, 19.1% 23.06%, 34.55% 19.1%, 50% 13.4%, 65.45% 19.1%, 80.9% 23.06%, 94.46% 34.55%);
+        }
+
+        /* Logic for Premium Mode Layout */
+        body.premium-mode-active #standardHeader { display: none !important; }
+
+        /* UPGRADE: Adjusted top to 68px so dynamic island doesn't touch search bar */
+        body.premium-mode-active .search-container {
+            position: absolute;
+            top: 68px;
+            left: 15px;
+            padding: 0;
+            z-index: 999;
+        }
+        body.premium-mode-active .search-box {
+            width: 48px;
+            overflow: hidden;
+            background: rgba(28, 28, 30, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        body.premium-mode-active .search-box:focus-within {
+            width: calc(100vw - 30px);
+            background: #fff;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        /* Adjusted margin-top to account for lowered search bar */
+        body.premium-mode-active #chatList { margin-top: 75px; }
+    </style>
+</head>
+<body id="appBody">
+
+    <div id="denexAlert">Message</div>
+
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-card">
+            <h3 id="modalTitle">Block User?</h3>
+            <p id="modalMsg">Are you sure you want to block this user?</p>
+            <div class="modal-btns">
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn-confirm" id="modalActionBtn">Block</button>
+            </div>
+        </div>
+    </div>
+
+    <header id="standardHeader">
+        <div class="denex-logo-box">
+            <b>DENEX</b>
+            <span>Messenger</span>
+        </div>
+        <div class="header-right">
+            <div class="user-badge" id="topProfile" onclick="location.href='profile.html'">
+                <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" id="headAvatar">
+                <span id="headUname">Guest</span>
+            </div>
+        </div>
+    </header>
+
+    <div id="premiumHeader" style="display: none;">
+        <div class="island-container">
+            <div class="island-pill brand-island">
+                <b>DENEX</b>
+                <span>Messenger</span>
+            </div>
+
+            <div class="island-pill status-island">
+                PREMIUM USER
+                <span class="verified-badge-list"><i class="fas fa-check"></i></span>
+            </div>
+
+            <div class="island-pill profile-island" onclick="location.href='profile.html'">
+                <span>View Profile</span>
+                <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" id="premiumHeadAvatar">
+            </div>
+        </div>
+    </div>
+
+    <div class="dropdown" id="userDropdown">
+        <div class="menu-header"><h2 style="margin:0; color:var(--denex-blue); font-weight:800;">Denex</h2></div>
+        <div class="dropdown-item" onclick="location.href='index.html'"><i class="fa-solid fa-comment"></i> Chats</div>
+        <div class="dropdown-item" onclick="location.href='profile.html'"><i class="fa-solid fa-circle-user"></i> Profile</div>
+        <div class="dropdown-item" onclick="location.href='setting.html'"><i class="fa-solid fa-gear"></i> Settings</div>
+        <div class="dropdown-item logout" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</div>
+    </div>
+
+    <div class="search-container">
+        <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass" style="color: #8e8e93; font-size: 18px;"></i>
+            <input type="text" id="userSearch" placeholder="Search username to chat...">
+        </div>
+    </div>
+
+    <div id="guestUI">
+        <h2 style="color: var(--denex-dark); font-weight:800; font-size: 28px;">Denex</h2>
+        <p style="color: var(--denex-gray); font-weight: 500;">Login to start chatting with friends.</p>
+        <button class="btn-login" onclick="location.href='login.html'">Login Now</button>
+    </div>
+
+    <div id="empty-state">
+        <div class="d-container">
+            <div class="d-symbol">D</div>
+            <div class="hand-wave">👋</div>
+        </div>
+        <h3 style="margin:0; font-weight:800;">Welcome to Denex!</h3>
+        <p style="opacity: 0.6; font-size: 15px; margin-top: 10px;">Search a friend to start chatting</p>
+    </div>
+
+    <div id="chatList"></div>
+
+    <nav class="bottom-dock-container">
+        <div class="bottom-dock-pill" id="mainDockPill">
+            <div class="dock-item active" onclick="location.href='index.html'">
+                <i class="fa-solid fa-comment"></i>
+            </div>
+            <div class="dock-item" onclick="location.href='profile.html'">
+                <i class="fa-solid fa-circle-user"></i>
+            </div>
+            <div class="dock-item" onclick="location.href='setting.html'">
+                <i class="fa-solid fa-gear"></i>
+            </div>
+            <div class="dock-item logout-accent" onclick="handleLogout()">
+                <i class="fa-solid fa-right-from-bracket"></i>
+            </div>
+        </div>
+    </nav>
+
+    <script src="index.js"></script>
+</body>
+</html>

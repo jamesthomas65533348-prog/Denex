@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Denex Premium</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="config.js"></script> 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://checkout.flutterwave.com/v3.js"></script>
+
+    <style>
+        :root {
+            --denex-blue: #3B99FF;
+            --denex-gold: #FFD700;
+            --denex-purple: #7000FF;
+            --denex-dark: #1c1c1e;
+            --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            background: #fff; color: #1c1c1e; overflow: hidden;
+            -webkit-user-select: none; user-select: none;
+            -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+        }
+
+        .powered-tag {
+            position: fixed; top: 15px; width: 100%;
+            text-align: center; z-index: 1001;
+            font-size: 10px; font-weight: 700; letter-spacing: 1px;
+            text-transform: uppercase; opacity: 0.4; color: var(--denex-dark);
+        }
+
+        .premium-bg {
+            position: fixed; inset: 0;
+            background: linear-gradient(125deg, #ffffff 0%, #f3eaff 50%, #eaf4ff 100%);
+            z-index: -1;
+        }
+
+        /* BOUNCY BUTTONS */
+        button, .plan-card, .back-fab {
+            cursor: pointer; transition: transform 0.3s var(--spring);
+        }
+        button:active, .plan-card:active { transform: scale(0.85); }
+
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.2);
+            display: none; align-items: center; justify-content: center;
+            z-index: 10000; backdrop-filter: blur(15px);
+        }
+        .modal-box {
+            background: rgba(255, 255, 255, 0.9); width: 85%; max-width: 320px;
+            border-radius: 30px; padding: 30px; text-align: center;
+            border: 1px solid rgba(255,255,255,0.6);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            animation: modalPop 0.4s var(--spring);
+        }
+        @keyframes modalPop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        .modal-btn {
+            width: 100%; padding: 15px; border-radius: 18px; border: none;
+            background: #1c1c1e; color: white; font-weight: 700;
+        }
+
+        .back-fab {
+            position: fixed; top: 50px; left: 20px;
+            width: 45px; height: 45px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(0, 0, 0, 0.05);
+            display: flex; align-items: center; justify-content: center; z-index: 1000;
+        }
+
+        #loadingOverlay {
+            position: fixed; inset: 0; background: #fff;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; z-index: 9999;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--denex-purple); border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .main-wrapper { 
+            display: flex; width: 300%; height: 100%; 
+            transition: transform 0.8s var(--spring);
+            visibility: hidden;
+        }
+        .screen {
+            width: 33.33%; height: 100%; flex-shrink: 0;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; padding: 30px; box-sizing: border-box;
+        }
+
+        .icon-container {
+            width: 130px; height: 130px; background: #fff; border-radius: 45px;
+            display: flex; align-items: center; justify-content: center; margin-bottom: 40px;
+            font-size: 55px; color: var(--denex-purple);
+            box-shadow: 0 20px 40px rgba(112, 0, 255, 0.15); transition: 0.5s var(--spring);
+        }
+
+        .nav-btn {
+            background: #1c1c1e; color: #fff; border: none;
+            padding: 18px 80px; border-radius: 24px; font-weight: 800;
+        }
+
+        .plan-card {
+            background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(0,0,0,0.05);
+            border-radius: 30px; padding: 25px; margin-bottom: 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            width: 100%; max-width: 360px; backdrop-filter: blur(10px);
+        }
+        .plan-info h2 { margin: 0; font-size: 11px; text-transform: uppercase; color: var(--denex-purple); letter-spacing: 2px; }
+        .plan-info p { margin: 5px 0 0; font-size: 24px; font-weight: 900; }
+        .pay-go-btn { background: var(--denex-purple); color: #fff; width: 45px; height: 45px; border-radius: 50%; border: none; }
+
+        .countdown-box {
+            background: rgba(112, 0, 255, 0.05); padding: 15px 30px; border-radius: 20px; text-align: center; margin-top: 20px;
+        }
+        .time-text { color: var(--denex-purple); font-weight: 800; font-size: 20px; font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body>
+
+    <div class="powered-tag">Powered by Gaming Collective</div>
+
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <p id="loadText" style="font-weight: 700; font-size: 14px;">Syncing Denex...</p>
+    </div>
+
+    <div class="modal-overlay" id="customModal">
+        <div class="modal-box">
+            <i id="modalIcon" class="fa-solid fa-circle-exclamation"></i>
+            <h2 id="modalTitle">Notice</h2>
+            <p id="modalMsg">Message content here.</p>
+            <button class="modal-btn" onclick="closeModal()">Got it</button>
+        </div>
+    </div>
+
+    <div class="premium-bg"></div>
+
+    <div class="back-fab" onclick="location.href='setting.html'">
+        <i class="fa-solid fa-chevron-left"></i>
+    </div>
+
+    <div class="main-wrapper" id="masterSlider">
+        <div class="screen">
+            <div class="icon-container" id="morphIcon"><i class="fa-solid fa-crown"></i></div>
+            <div class="slide-text"><h1 id="introTitle" style="text-align:center;">Become a premium and verified member</h1></div>
+            <button class="nav-btn" onclick="handleNext()">NEXT</button>
+        </div>
+
+        <div class="screen">
+            <h1 style="margin-bottom: 30px; font-weight: 900;">Choose a Plan</h1>
+            <div class="plan-card" onclick="startPay(7999, 'weekly')">
+                <div class="plan-info"><h2>Weekly</h2><p>₦7,999</p></div>
+                <button class="pay-go-btn"><i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+            <div class="plan-card" onclick="startPay(31999, 'monthly')">
+                <div class="plan-info"><h2>Monthly</h2><p>₦31,999</p></div>
+                <button class="pay-go-btn"><i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+            <div class="plan-card" onclick="startPay(399999, 'yearly')" style="border-color: var(--denex-purple);">
+                <div class="plan-info"><h2>Yearly Access</h2><p>₦399,999</p></div>
+                <button class="pay-go-btn" style="background: #1c1c1e;"><i class="fa-solid fa-star" style="color: var(--denex-gold);"></i></button>
+            </div>
+        </div>
+
+        <div class="screen" id="activeView">
+            <div class="icon-container" style="color: #4cd137; box-shadow: 0 20px 40px rgba(76, 209, 55, 0.2);"><i class="fa-solid fa-circle-check"></i></div>
+            <h1 style="margin-bottom: 5px;">Premium Active</h1>
+            <p id="subTypeDisplay" style="text-transform: uppercase; letter-spacing: 2px; font-size: 11px; opacity: 0.6; margin-bottom: 25px;"></p>
+            <div class="countdown-box">
+                <div style="font-size: 10px; opacity: 0.7; margin-bottom: 5px; text-transform: uppercase;">Valid Until Expiry</div>
+                <div class="time-text" id="timerDisplay">00:00:00:00</div>
+            </div>
+            <button class="nav-btn" style="margin-top: 40px; background: rgba(0,0,0,0.05); color: #000;" onclick="location.href='setting.html'">CONTINUE</button>
+        </div>
+    </div>
+
+    <script>
+        const _supa = supabase.createClient(DENEX_CONFIG.SB_URL, DENEX_CONFIG.SB_KEY);
+        let me = JSON.parse(localStorage.getItem('denex_user'));
+        let timerInterval;
+        let currentStep = 0;
+
+        function showAlert(title, msg, icon = "fa-circle-exclamation") {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMsg').innerText = msg;
+            document.getElementById('modalIcon').className = `fa-solid ${icon}`;
+            document.getElementById('customModal').style.display = 'flex';
+        }
+        function closeModal() { document.getElementById('customModal').style.display = 'none'; }
+
+        function handleNext() {
+            const slides = [
+                { icon: "fa-crown", title: "Become a premium and verified member" },
+                { icon: "fa-bolt", title: "Get access to 99.9% of all Denex has to offer" },
+                { icon: "fa-gem", title: "Unlimited access and smoother design" }
+            ];
+            if (currentStep < slides.length - 1) {
+                currentStep++;
+                const icon = document.getElementById('morphIcon');
+                const title = document.getElementById('introTitle');
+                icon.style.transform = "scale(0.5) rotate(-90deg)"; icon.style.opacity = "0";
+                setTimeout(() => {
+                    icon.innerHTML = `<i class="fa-solid ${slides[currentStep].icon}"></i>`;
+                    title.innerText = slides[currentStep].title;
+                    icon.style.transform = "scale(1) rotate(0deg)"; icon.style.opacity = "1";
+                }, 300);
+            } else {
+                document.getElementById('masterSlider').style.transform = "translateX(-33.33%)";
+            }
+        }
+
+        async function startPay(amount, plan) {
+            if (!me) return;
+            FlutterwaveCheckout({
+                public_key: "FLWPUBK-4b9baac52d43aa02765923e58050f152-X",
+                tx_ref: "DNX_" + Math.floor(Math.random() * 1000000),
+                amount: amount, currency: "NGN",
+                customer: { email: me.email, name: me.first_name + " " + me.last_name },
+                callback: (data) => { if (data.status === "successful") processSuccess(plan); },
+                customizations: { title: "Denex Premium", description: plan + " Subscription" }
+            });
+        }
+
+        async function processSuccess(plan) {
+            document.getElementById('loadText').innerText = "Updating Profile...";
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            
+            let exp = new Date();
+            if (plan === 'weekly') exp.setDate(exp.getDate() + 7);
+            else if (plan === 'monthly') exp.setDate(exp.getDate() + 31);
+            else if (plan === 'yearly') exp.setFullYear(exp.getFullYear() + 1);
+
+            const { error } = await _supa.from('denex_profiles')
+                .update({ is_premium: true, premium_until: exp.toISOString(), subscription_type: plan })
+                .eq('email', me.email)
+                .eq('password', me.password);
+
+            if (!error) {
+                const { data: user } = await _supa.from('denex_profiles').select('*').eq('email', me.email).single();
+                localStorage.setItem('denex_user', JSON.stringify(user));
+                me = user;
+                document.getElementById('loadingOverlay').style.display = 'none';
+                showActiveScreen();
+            } else {
+                document.getElementById('loadingOverlay').style.display = 'none';
+                showAlert("Sync Error", "Update failed. Check your connection.");
+            }
+        }
+
+        function showActiveScreen() {
+            document.getElementById('subTypeDisplay').innerText = (me.subscription_type || 'Premium') + " membership";
+            document.getElementById('masterSlider').style.transform = "translateX(-66.66%)";
+            document.getElementById('masterSlider').style.visibility = 'visible';
+            startCountdown(me.premium_until);
+        }
+
+        function startCountdown(endTime) {
+            clearInterval(timerInterval);
+            const target = new Date(endTime).getTime();
+            timerInterval = setInterval(() => {
+                const now = new Date().getTime();
+                const diff = target - now;
+                
+                // If the time hit 0, the Edge Function/Cron will flip the DB.
+                // We refresh the page to force the UI to lock out.
+                if (diff <= 0) { 
+                    clearInterval(timerInterval); 
+                    location.reload(); 
+                    return; 
+                }
+
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const secs = Math.floor((diff % (1000 * 60)) / 1000);
+                document.getElementById('timerDisplay').innerText = `${days}d : ${hours.toString().padStart(2, '0')}h : ${mins.toString().padStart(2, '0')}m : ${secs.toString().padStart(2, '0')}s`;
+            }, 1000);
+        }
+
+        async function checkSubscription() {
+            if (!me) { location.href='login.html'; return; }
+            
+            // Force fetch fresh state from Supabase
+            const { data: fresh } = await _supa.from('denex_profiles')
+                .select('*')
+                .eq('email', me.email)
+                .maybeSingle();
+
+            if (fresh) {
+                me = fresh;
+                localStorage.setItem('denex_user', JSON.stringify(me));
+                
+                const now = new Date();
+                const exp = me.premium_until ? new Date(me.premium_until) : null;
+
+                // Even if Edge function is slow, we check locally too
+                if (me.is_premium === true && exp && exp > now) {
+                    showActiveScreen();
+                } else {
+                    document.getElementById('masterSlider').style.transform = "translateX(0%)";
+                    document.getElementById('masterSlider').style.visibility = 'visible';
+                }
+            }
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+
+        checkSubscription();
+    </script>
+</body>
+</html>
